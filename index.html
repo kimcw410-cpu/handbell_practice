@@ -290,7 +290,7 @@ const SONGS = [
     midi:(L,r,s,name)=> (r===0 && L===2 && s===28) ? 62 : JOY_MIDI[r][name] },
   { id:"hush", title:"허시 리틀 베이비", icon:"🌙", lines:HUSH, rowKinds:["perc","bell","bell","bell"],
     chords:[["F","F","F","C","C","C","C","F"],["F","F","F","C","C","C","C","F"],["F","C","C","F","F","C","C","F"]],
-    chordStyle:"bass", mel:HUSH_MEL, cellBeats:1,
+    chordStyle:"bass", mel:HUSH_MEL, cellBeats:1, bpm:128,   // 유튜브 영상 속도(약 44초)에 맞춤
     midi:(L,r,s,name)=> HUSH_MIDI[name] },
   { id:"paper", title:"종이접기", icon:"📄", lines:PAPER, rowKinds:["bell","bell"],
     chords:[["C","C","Am","Am","Dm","Dm","G","G"],["C","C","Am","Am","Dm","G","C","C"],["F","F","C","C","G","G","C","C"],["F","F","G","G","C","C","G","G"],["C","C","Em","Em","F","G","C","C"]],
@@ -477,7 +477,7 @@ function silenceFuture(){
 
 /* ================== 박자 시계 (소리와 화면이 같은 시계를 씀) ================== */
 let playing=false, anchorBeat=0, anchorTime=0, queue=[], qi=0, timer=null, startBeat=0, pausedBeat=-4;
-const bpm = ()=>BASE_BPM*speed;
+const bpm = ()=>((SONG&&SONG.bpm)||BASE_BPM)*speed;
 const beatAt = t => anchorBeat + (t-anchorTime)*bpm()/60;
 const timeAt = b => anchorTime + (b-anchorBeat)*60/bpm();
 const curBeat = ()=> playing ? beatAt(ac.currentTime) : pausedBeat;
