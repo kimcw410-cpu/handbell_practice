@@ -131,6 +131,57 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
   .tb{padding:6px 8px}
   .chip .who{font-size:12px}
 }
+/* ---------- 세로 핸드폰 ---------- */
+@media (max-width:700px) and (orientation:portrait){
+  #home{gap:1.6vh;padding:10px 10px;justify-content:flex-start;overflow-y:auto}
+  .bells span{width:26px;height:26px;font-size:13px}
+  #home h1{font-size:30px}
+  #home h1 small{font-size:13px}
+  .sel-label{font-size:16px;margin-bottom:-.6vh}
+  .songs{width:100%;gap:6px}
+  .song{width:auto;flex:1;padding:8px 4px;border-width:4px;border-radius:16px;gap:4px;min-width:0}
+  .song.on{transform:none}
+  .song .ic{font-size:24px}
+  .song .tt{font-size:15px;white-space:normal;text-align:center;word-break:keep-all;line-height:1.2}
+  .song.on .tt::before{content:""}
+  .song .ds{font-size:11px}
+  .parts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%}
+  .pbtn{min-width:0;font-size:12px;padding:6px 2px;border-width:3px;border-radius:12px;word-break:keep-all;text-align:center}
+  .pbtn .dots i{width:16px;height:16px}
+  .bigbtns{gap:8px;width:100%}
+  .big{font-size:18px;padding:12px 10px;border-radius:16px;flex:1;min-width:40%}
+  .speedrow{font-size:16px;gap:8px}
+  .hint{display:none}
+
+  #assign{padding:14px 12px;gap:10px;overflow-y:auto}
+  #assign h2{font-size:24px}
+  #assign p{font-size:13px}
+  .cards{grid-template-columns:repeat(2,1fr);gap:8px;flex:none}
+  .card{padding:10px 6px;gap:6px;border-radius:16px}
+  .pcard .nm{font-size:20px!important}
+  .pcard .dots i{width:26px;height:26px}
+  .pcard label{font-size:14px!important}
+  .card textarea{min-height:44px;flex:none;height:48px;font-size:20px;padding:6px}
+  .assign-foot .big{font-size:15px!important;padding:10px 12px}
+
+  .topbar{flex-wrap:wrap;overflow-x:visible;gap:5px;padding:6px}
+  .pos{font-size:18px;width:100%}
+  .tb{font-size:13px;padding:6px 7px;border-radius:10px}
+  .linebtns{font-size:12px;gap:4px}
+  .linebtns button{min-width:26px}
+  .topbar .seg{font-size:13px!important}
+  .topbar .seg button{padding:5px 7px}
+  .legend{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:6px}
+  .chip{border-radius:12px;padding:4px 2px;border-width:3px}
+  .chip .dots i{width:14px;height:14px}
+  .chip .n{font-size:13px!important}
+  .chip .who{font-size:12px}
+  .chip.on{transform:scale(1.05)}
+  #pausedMsg div{font-size:34px}
+  #end{padding:0 14px}
+  #end h2{font-size:56px}
+  #end p{font-size:18px;text-align:center}
+}
 #toast{position:fixed;left:50%;bottom:6vh;transform:translateX(-50%);max-width:92vw;background:#ffd23f;color:#222;
   font-weight:800;font-size:clamp(15px,1.6vw,30px);padding:1.4vh 2vw;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.5);
   z-index:99;display:none;text-align:center;line-height:1.4}
@@ -677,10 +728,12 @@ function draw(){
   const b=curBeat();
   if(playing && b>=END_BEAT){ stopAll(); store.set("lastLine_"+SONG.id,0); showEnd(); return; }
 
-  const R=SONG.rowKinds.length;
-  const topH=Math.max(44,H*0.09), numH=Math.max(56,H*0.12);
-  const laneTop=topH, laneH=(H-topH-numH)/R;
-  const cb=SONG.cellBeats||0.5, ppb=Math.max(150,W*0.13), lineX=W*0.2, cellW=ppb*cb;
+  const R=SONG.rowKinds.length, phone=W<700 && H>W;
+  const topH=phone?40:Math.max(44,H*0.09), numH=phone?44:Math.max(56,H*0.12);
+  const laneH=phone?Math.min((H-topH-numH-56)/R, 150):(H-topH-numH)/R;
+  const laneTop=phone?Math.max(topH,(H-numH-50-laneH*R)/2):topH;
+  const infoY=phone? laneTop+laneH*R+numH+4 : 4;   // 파트 연습·시작 위치 안내 글씨 자리
+  const cb=SONG.cellBeats||0.5, ppb=phone?Math.max(60,W*0.17):Math.max(150,W*0.13), lineX=W*0.2, cellW=ppb*cb;
   const X=beat=>lineX+(beat-b)*ppb;
   const minB=b-lineX/ppb-1, maxB=b+(W-lineX)/ppb+1;
 
@@ -701,7 +754,7 @@ function draw(){
     if(m<nM){
       g.fillStyle=big?"#ffd23f":"#b9c1e8";
       g.font=`800 ${Math.round(topH*0.5)}px sans-serif`; g.textBaseline="middle"; g.textAlign="left";
-      g.fillText(big?`${mb/BPL+1}째 줄 · 1마디`:`${(mb%BPL)/4+1}마디`, x+10, topH*0.48);
+      g.fillText(big?`${mb/BPL+1}째 줄 · 1마디`:`${(mb%BPL)/4+1}마디`, x+10, laneTop-topH+topH*0.48);
     }
   }
   const nameSize=Math.min(laneH*0.42, cellW*0.62);
@@ -750,9 +803,9 @@ function draw(){
   g.save(); g.globalAlpha=0.55; g.fillStyle="#ffd23f"; g.fillRect(lineX-3, laneTop-10, 6, laneH*R+20); g.restore();
   g.fillStyle="#ffd23f";
   g.beginPath(); g.moveTo(lineX-18,laneTop+laneH*R+8); g.lineTo(lineX+18,laneTop+laneH*R+8); g.lineTo(lineX,laneTop+laneH*R-14); g.fill();
-  rr(lineX-ppb*0.42, 2, ppb*0.84, topH-6, 12); g.fill();
+  const pw=Math.max(ppb*0.84,72); rr(lineX-pw/2, laneTop-topH+2, pw, topH-6, 12); g.fill();
   g.fillStyle="#222"; g.font=`900 ${Math.round(topH*0.55)}px sans-serif`; g.textAlign="center"; g.textBaseline="middle";
-  g.fillText("지금!", lineX, topH*0.48);
+  g.fillText("지금!", lineX, laneTop-topH+topH*0.48);
 
   const L=Math.max(0,Math.min(SONG.lines.length-1,Math.floor(Math.max(0,b)/BPL))), M=b<0?0:Math.min(BPL/4-1,Math.floor((b%BPL)/4));
   const txt=`<span class="sn">${SONG.icon} ${SONG.title}</span>${L+1}째 줄<small>${M+1}마디</small>`;
@@ -766,8 +819,9 @@ function draw(){
   if(partMode && !drag){
     const p=PARTS[partMode-1], t=`🎯 ${p.n}번 파트 (${p.label}) 연습 중`;
     g.font=`900 ${Math.round(topH*0.5)}px sans-serif`; const tw=g.measureText(t).width+40;
-    g.fillStyle="#ffd23f"; rr(W-tw-12,4,tw,topH-10,14); g.fill();
-    g.fillStyle="#222"; g.textAlign="center"; g.textBaseline="middle"; g.fillText(t, W-tw/2-12, topH*0.47);
+    const px=phone?(W-tw)/2:W-tw-12;
+    g.fillStyle="#ffd23f"; rr(px,infoY,tw,topH-10,14); g.fill();
+    g.fillStyle="#222"; g.textAlign="center"; g.textBaseline="middle"; g.fillText(t, px+tw/2, infoY+(topH-10)/2);
   }
 
   // "지금!" 선 끌기
@@ -783,9 +837,9 @@ function draw(){
     const Lh=Math.floor(tb/BPL), Mh=Math.floor((tb%BPL)/4), Bh=tb%4;
     const t=`여기부터: ${Lh+1}째 줄 ${Mh+1}마디 ${Bh+1}박`;
     g.font=`900 ${Math.round(topH*0.55)}px sans-serif`; const tw=g.measureText(t).width+40;
-    const bx=Math.max(4,Math.min(W-tw-4,gxs-tw/2));
-    g.fillStyle="#ff5d8f"; rr(bx,4,tw,topH-8,14); g.fill();
-    g.fillStyle="#fff"; g.textAlign="center"; g.textBaseline="middle"; g.fillText(t,bx+tw/2,topH*0.48);
+    const bx=phone?(W-tw)/2:Math.max(4,Math.min(W-tw-4,gxs-tw/2));
+    g.fillStyle="#ff5d8f"; rr(bx,infoY,tw,topH-8,14); g.fill();
+    g.fillStyle="#fff"; g.textAlign="center"; g.textBaseline="middle"; g.fillText(t,bx+tw/2,infoY+(topH-8)/2);
   }
 
   const cd=$("#count");
