@@ -15,7 +15,7 @@
 html,body{height:100%;background:var(--bg);color:var(--text);
   font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",sans-serif;overflow:hidden}
 button{font-family:inherit;cursor:pointer;border:none;color:inherit}
-.screen{position:fixed;inset:0;display:none;flex-direction:column}
+.screen{position:fixed;top:0;left:0;right:0;height:100%;height:100dvh;display:none;flex-direction:column}
 .screen.show{display:flex}
 
 /* ---------- 첫 화면 ---------- */
@@ -182,6 +182,29 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
   #end h2{font-size:56px}
   #end p{font-size:18px;text-align:center}
 }
+/* ---------- 핸드폰 '악보 크게 보기' ---------- */
+#miniBar{display:none;justify-content:center;gap:6px;padding:5px 6px;background:var(--panel);flex-wrap:nowrap}
+#miniBar button{min-width:44px;height:42px;padding:0 10px;border-radius:22px;background:rgba(29,35,64,.88);color:#fff;
+  font-size:17px;font-weight:800;border:2px solid rgba(255,255,255,.25);white-space:nowrap}
+#miniBar #mHome{background:#e63946} #miniBar #mExit{background:#ffd23f;color:#222}
+body.focus #miniBar{display:flex}
+body.focus #toast{top:10px;bottom:auto}
+body.focus #play .topbar, body.focus #play .legend{display:none}
+/* 가로 핸드폰 (보통 화면) */
+@media (max-height:500px) and (orientation:landscape){
+  .topbar{padding:4px 6px;gap:5px}
+  .pos{font-size:15px}
+  .tb{font-size:12px;padding:5px 7px;border-radius:10px}
+  .topbar .seg{font-size:12px!important;padding:3px}
+  .topbar .seg button{padding:4px 6px}
+  .linebtns{font-size:11px}
+  .legend{padding:4px 6px;gap:5px}
+  .chip{padding:2px;border-radius:10px;border-width:3px}
+  .chip .dots{display:none}
+  .chip .n{font-size:12px!important}
+  .chip .who{font-size:11px}
+  #home{justify-content:flex-start;overflow-y:auto;gap:8px;padding:8px}
+}
 #toast{position:fixed;left:50%;bottom:6vh;transform:translateX(-50%);max-width:92vw;background:#ffd23f;color:#222;
   font-weight:800;font-size:clamp(15px,1.6vw,30px);padding:1.4vh 2vw;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.5);
   z-index:99;display:none;text-align:center;line-height:1.4}
@@ -247,6 +270,7 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
     <div id="pausedMsg"><div>⏸ 잠깐 멈춤</div><button class="big primary" id="btnContinue">▶ 계속하기 <small>(1,2,3,4 세고 이 마디부터)</small></button></div>
   </div>
   <div class="legend" id="legend"></div>
+  <div id="miniBar"><button id="mPause">⏸</button><button id="mRestart">⏮ 처음</button><button id="mSpeed">1배속</button><button id="mHome">🏠 홈</button><button id="mExit">✕ 작게 보기</button></div>
 </section>
 
 <!-- ⑤ 끝 화면 -->
@@ -634,7 +658,7 @@ function saveLine(b){
 /* ================== 화면 전환 ================== */
 const $=s=>document.querySelector(s);
 function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("show",s.id===id)); }
-function goHome(){ stopAll(); show("home"); refreshHome(); }
+function goHome(){ stopAll(); if(document.body.classList.contains("focus")){ setFocus(false); try{ if(isFull()) (document.exitFullscreen||document.webkitExitFullscreen).call(document); }catch(e){} } show("home"); refreshHome(); }
 function refreshHome(){
   document.querySelectorAll(".song").forEach((el,i)=>el.classList.toggle("on",i===songIdx));
   const s=SONGS[songIdx];
@@ -728,12 +752,14 @@ function draw(){
   const b=curBeat();
   if(playing && b>=END_BEAT){ stopAll(); store.set("lastLine_"+SONG.id,0); showEnd(); return; }
 
-  const R=SONG.rowKinds.length, phone=W<700 && H>W;
-  const topH=phone?40:Math.max(44,H*0.09), numH=phone?44:Math.max(56,H*0.12);
-  const laneH=phone?Math.min((H-topH-numH-56)/R, 150):(H-topH-numH)/R;
-  const laneTop=phone?Math.max(topH,(H-numH-50-laneH*R)/2):topH;
-  const infoY=phone? laneTop+laneH*R+numH+4 : 4;   // 파트 연습·시작 위치 안내 글씨 자리
-  const cb=SONG.cellBeats||0.5, ppb=phone?Math.max(60,W*0.17):Math.max(150,W*0.13), lineX=W*0.2, cellW=ppb*cb;
+  const R=SONG.rowKinds.length, phone=W<700 && H>W, lphone=!phone && H<460;
+  const small=phone||lphone;
+  const topH=phone?40:lphone?32:Math.max(44,H*0.09), numH=phone?44:lphone?30:Math.max(56,H*0.12);
+  const band=phone?56:lphone?34:0;                   // 안내 글씨 띠
+  const laneH=phone?Math.min((H-topH-numH-band)/R, 150):(H-topH-numH-band)/R;
+  const laneTop=phone?Math.max(topH,(H-numH-band+6-laneH*R)/2):topH;
+  const infoY=small? laneTop+laneH*R+numH+2 : 4;   // 파트 연습·시작 위치 안내 글씨 자리
+  const cb=SONG.cellBeats||0.5, ppb=phone?Math.max(60,W*0.17):lphone?Math.max(70,W*0.11):Math.max(150,W*0.13), lineX=W*0.2, cellW=ppb*cb;
   const X=beat=>lineX+(beat-b)*ppb;
   const minB=b-lineX/ppb-1, maxB=b+(W-lineX)/ppb+1;
 
@@ -819,7 +845,7 @@ function draw(){
   if(partMode && !drag){
     const p=PARTS[partMode-1], t=`🎯 ${p.n}번 파트 (${p.label}) 연습 중`;
     g.font=`900 ${Math.round(topH*0.5)}px sans-serif`; const tw=g.measureText(t).width+40;
-    const px=phone?(W-tw)/2:W-tw-12;
+    const px=small?(W-tw)/2:W-tw-12;
     g.fillStyle="#ffd23f"; rr(px,infoY,tw,topH-10,14); g.fill();
     g.fillStyle="#222"; g.textAlign="center"; g.textBaseline="middle"; g.fillText(t, px+tw/2, infoY+(topH-10)/2);
   }
@@ -837,11 +863,13 @@ function draw(){
     const Lh=Math.floor(tb/BPL), Mh=Math.floor((tb%BPL)/4), Bh=tb%4;
     const t=`여기부터: ${Lh+1}째 줄 ${Mh+1}마디 ${Bh+1}박`;
     g.font=`900 ${Math.round(topH*0.55)}px sans-serif`; const tw=g.measureText(t).width+40;
-    const bx=phone?(W-tw)/2:Math.max(4,Math.min(W-tw-4,gxs-tw/2));
+    const bx=small?(W-tw)/2:Math.max(4,Math.min(W-tw-4,gxs-tw/2));
     g.fillStyle="#ff5d8f"; rr(bx,infoY,tw,topH-8,14); g.fill();
     g.fillStyle="#fff"; g.textAlign="center"; g.textBaseline="middle"; g.fillText(t,bx+tw/2,infoY+(topH-8)/2);
   }
 
+  const mp=playing?"⏸":"▶"; if($("#mPause").textContent!==mp) $("#mPause").textContent=mp;
+  const ms=speed===1?"1배속":"0.8배속"; if($("#mSpeed").textContent!==ms) $("#mSpeed").textContent=ms;
   const cd=$("#count");
   if(playing && b<startBeat){
     const k=Math.floor(b-(startBeat-4))+1;
@@ -914,7 +942,28 @@ function fullHelp(){
   toast(iOS ? "아이폰은 웹 페이지 전체화면을 지원하지 않아요.<br>📱 핸드폰을 <b>가로로 돌리면</b> 화면이 넓어지고, 사파리 주소창은 화면을 아래로 살짝 쓸면 작아져요."
             : "이 브라우저에서는 전체화면이 안 돼요.<br>카톡·파일 미리보기라면 <b>크롬으로 열기</b>를 눌러 주세요. 📱 가로로 돌리면 화면이 넓어져요.", 8000);
 }
+const isPhone=()=>Math.min(innerWidth,innerHeight)<600;
+function setFocus(on){
+  document.body.classList.toggle("focus",on);
+  $("#btnFull").textContent=on?"⛶ 작게 보기":"⛶ 전체화면";
+  setTimeout(()=>{ if($("#play").classList.contains("show")) resize(); },120);
+}
+function phoneFull(){
+  const d=document, el=d.documentElement, on=!document.body.classList.contains("focus");
+  setFocus(on);
+  try{
+    if(on){
+      const req=el.requestFullscreen||el.webkitRequestFullscreen;   // 안드로이드: 주소창까지 숨기기 (가로 고정은 하지 않아요)
+      if(req){ const pr=req.call(el,{navigationUI:"hide"}); if(pr&&pr.catch) pr.catch(()=>{}); }
+      if(/iPhone|iPod/.test(navigator.userAgent) && !store.get("iosTip",false)){
+        store.set("iosTip",true);
+        toast("악보만 크게 보여요. 사파리 주소창까지 없애려면<br>주소창 왼쪽 <b>‘가가’(ᴀA)</b> 버튼 → <b>‘도구 막대 가리기’</b>를 눌러 주세요.",9000);
+      }
+    } else if(isFull()){ (d.exitFullscreen||d.webkitExitFullscreen).call(d); }
+  }catch(e){}
+}
 function toggleFull(){
+  if(isPhone()){ phoneFull(); return; }
   const d=document, el=d.documentElement;
   try{
     if(isFull()){ (d.exitFullscreen||d.webkitExitFullscreen).call(d); return; }
@@ -927,9 +976,16 @@ function toggleFull(){
   }catch(e){ fullHelp(); }
 }
 ["fullscreenchange","webkitfullscreenchange"].forEach(ev=>document.addEventListener(ev,()=>{
-  $("#btnFull").textContent=isFull()?"⛶ 전체화면 끄기":"⛶ 전체화면";
+  if(isPhone()){ if(!isFull() && document.body.classList.contains("focus") && ev) {} }
+  else $("#btnFull").textContent=isFull()?"⛶ 전체화면 끄기":"⛶ 전체화면";
   setTimeout(()=>{ if($("#play").classList.contains("show")) resize(); },150);
 }));
+if(window.visualViewport) visualViewport.addEventListener("resize",()=>{ if($("#play").classList.contains("show")) resize(); });
+$("#mPause").onclick=()=>{ playing?pause():resume(); };
+$("#mRestart").onclick=()=>{ store.set("lastLine_"+SONG.id,0); startFrom(0); };
+$("#mSpeed").onclick=()=>setSpeed(speed===1?0.8:1);
+$("#mHome").onclick=()=>goHome();
+$("#mExit").onclick=()=>phoneFull();
 window.addEventListener("orientationchange",()=>setTimeout(()=>{ if($("#play").classList.contains("show")) resize(); },300));
 $("#btnFull").onclick=toggleFull;
 document.addEventListener("keydown",e=>{
