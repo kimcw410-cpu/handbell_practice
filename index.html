@@ -2,7 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>핸드벨 노래방</title>
 <style>
 :root{
@@ -122,6 +124,17 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 @keyframes fall{to{transform:translateY(115vh) rotate(720deg)}}
 
 .hint{font-size:clamp(14px,1.2vw,24px);color:var(--sub)}
+@media (max-width:1000px){
+  .topbar{overflow-x:auto;scrollbar-width:none;gap:6px;padding:6px 8px}
+  .topbar::-webkit-scrollbar{display:none}
+  .topbar .spacer{display:none}
+  .tb{padding:6px 8px}
+  .chip .who{font-size:12px}
+}
+#toast{position:fixed;left:50%;bottom:6vh;transform:translateX(-50%);max-width:92vw;background:#ffd23f;color:#222;
+  font-weight:800;font-size:clamp(15px,1.6vw,30px);padding:1.4vh 2vw;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.5);
+  z-index:99;display:none;text-align:center;line-height:1.4}
+#toast.show{display:block}
 </style>
 </head>
 <body>
@@ -837,7 +850,33 @@ $("#btnEndHome").onclick=()=>goHome();
 document.querySelectorAll("[data-speedseg] button").forEach(btn=>btn.onclick=()=>setSpeed(Number(btn.dataset.speed)));
 function paintBell(){ const b=$("#btnBell"); b.textContent=bellOn?"🔔 벨 켬":"🔕 벨 끔"; b.classList.toggle("on",bellOn); }
 $("#btnBell").onclick=()=>{ bellOn=!bellOn; store.set("bellOn",bellOn); paintBell(); if(bellBus) bellBus.gain.value=bellOn?1:0; };
-function toggleFull(){ try{ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }catch(e){} }
+/* 전체화면: 컴퓨터·안드로이드는 진짜 전체화면, 지원하지 않는 핸드폰(아이폰 등)은 안내 문구 */
+const isFull=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
+let toastT;
+function toast(msg,ms){ let t=$("#toast"); if(!t){ t=document.createElement("div"); t.id="toast"; document.body.append(t); t.onclick=()=>t.classList.remove("show"); }
+  t.innerHTML=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),ms||6000); }
+function fullHelp(){
+  const iOS=/iPhone|iPod/.test(navigator.userAgent);
+  toast(iOS ? "아이폰은 웹 페이지 전체화면을 지원하지 않아요.<br>📱 핸드폰을 <b>가로로 돌리면</b> 화면이 넓어지고, 사파리 주소창은 화면을 아래로 살짝 쓸면 작아져요."
+            : "이 브라우저에서는 전체화면이 안 돼요.<br>카톡·파일 미리보기라면 <b>크롬으로 열기</b>를 눌러 주세요. 📱 가로로 돌리면 화면이 넓어져요.", 8000);
+}
+function toggleFull(){
+  const d=document, el=d.documentElement;
+  try{
+    if(isFull()){ (d.exitFullscreen||d.webkitExitFullscreen).call(d); return; }
+    const req=el.requestFullscreen||el.webkitRequestFullscreen;
+    if(!req){ fullHelp(); return; }
+    const pr=req.call(el,{navigationUI:"hide"});
+    const after=()=>{ try{ if(screen.orientation&&screen.orientation.lock) screen.orientation.lock("landscape").catch(()=>{}); }catch(e){} };
+    if(pr&&pr.then) pr.then(after).catch(fullHelp); else after();
+    setTimeout(()=>{ if(!isFull()) fullHelp(); },700);
+  }catch(e){ fullHelp(); }
+}
+["fullscreenchange","webkitfullscreenchange"].forEach(ev=>document.addEventListener(ev,()=>{
+  $("#btnFull").textContent=isFull()?"⛶ 전체화면 끄기":"⛶ 전체화면";
+  setTimeout(()=>{ if($("#play").classList.contains("show")) resize(); },150);
+}));
+window.addEventListener("orientationchange",()=>setTimeout(()=>{ if($("#play").classList.contains("show")) resize(); },300));
 $("#btnFull").onclick=toggleFull;
 document.addEventListener("keydown",e=>{
   if(e.target.tagName==="TEXTAREA") return;
