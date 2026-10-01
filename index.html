@@ -182,6 +182,45 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
   #end h2{font-size:56px}
   #end p{font-size:18px;text-align:center}
 }
+/* ---------- 세로 태블릿 ---------- */
+@media (orientation:portrait) and (min-width:701px){
+  #home{gap:1.3vh;padding:1.5vh 3vw;overflow-y:auto}
+  .bells span{width:4.4vw;height:4.4vw;font-size:2.2vw}
+  #home h1{font-size:6vw}
+  #home h1 small{font-size:2.3vw}
+  .sel-label{font-size:3vw}
+  .songs{width:100%;gap:2vw}
+  .song{width:auto;flex:1;padding:1.2vh 1vw}
+  .song .ic{font-size:5vw}
+  .song .tt{font-size:3.4vw;white-space:normal;text-align:center;word-break:keep-all}
+  .song .ds{font-size:2.2vw}
+  .parts{display:grid;grid-template-columns:repeat(4,1fr);gap:1.6vw;width:100%}
+  .pbtn{min-width:0;font-size:2.4vw;padding:1vh .5vw;word-break:keep-all;text-align:center}
+  .pbtn .dots i{width:3vw;height:3vw}
+  .bigbtns{width:100%;gap:2vw}
+  .big{font-size:3.4vw;padding:1.6vh 2vw;flex:1;min-width:40%}
+  .speedrow{font-size:3.2vw}
+  .hint{font-size:2vw;text-align:center}
+
+  #assign h2{font-size:5vw} #assign p{font-size:2.4vw}
+  .cards{grid-template-columns:repeat(3,1fr);gap:2vw;flex:none}
+  .card{padding:2vh 1.5vw;gap:1.2vh}
+  .pcard .nm{font-size:4vw!important}
+  .pcard .dots i{width:6vw;height:6vw}
+  .pcard label{font-size:2.6vw!important}
+  .card textarea{flex:none;height:12vh;font-size:3.6vw}
+  .assign-foot .big{font-size:2.8vw!important}
+
+  .topbar{flex-wrap:wrap;gap:1vw;padding:1vh 1.5vw}
+  .pos{font-size:3.4vw}
+  .tb{font-size:2.3vw;padding:1vh 1.4vw}
+  .linebtns{font-size:2.2vw}
+  .topbar .seg{font-size:2.3vw!important}
+  .legend{display:grid;grid-template-columns:repeat(3,1fr);gap:1.2vw}
+  .chip .n{font-size:2.8vw!important}
+  .chip .who{font-size:2.2vw}
+  .chip .dots i{width:3vw;height:3vw}
+}
 /* ---------- 핸드폰 '악보 크게 보기' ---------- */
 #miniBar{display:none;justify-content:center;gap:6px;padding:5px 6px;background:var(--panel);flex-wrap:nowrap}
 #miniBar button{min-width:44px;height:42px;padding:0 10px;border-radius:22px;background:rgba(29,35,64,.88);color:#fff;
@@ -752,14 +791,14 @@ function draw(){
   const b=curBeat();
   if(playing && b>=END_BEAT){ stopAll(); store.set("lastLine_"+SONG.id,0); showEnd(); return; }
 
-  const R=SONG.rowKinds.length, phone=W<700 && H>W, lphone=!phone && H<460;
-  const small=phone||lphone;
-  const topH=phone?40:lphone?32:Math.max(44,H*0.09), numH=phone?44:lphone?30:Math.max(56,H*0.12);
-  const band=phone?56:lphone?34:0;                   // 안내 글씨 띠
-  const laneH=phone?Math.min((H-topH-numH-band)/R, 150):(H-topH-numH-band)/R;
-  const laneTop=phone?Math.max(topH,(H-numH-band+6-laneH*R)/2):topH;
+  const R=SONG.rowKinds.length, tall=H>W*1.05, phone=tall && W<700, tab=tall && !phone, lphone=!tall && H<460;
+  const small=phone||lphone||tab;
+  const topH=phone?40:lphone?32:tab?Math.max(48,W*0.065):Math.max(44,H*0.09), numH=phone?44:lphone?30:tab?Math.max(52,W*0.07):Math.max(56,H*0.12);
+  const band=phone?56:lphone?34:tab?topH+12:0;        // 안내 글씨 띠
+  const laneH=(phone||tab)?Math.min((H-topH-numH-band)/R, phone?150:W*0.24):(H-topH-numH-band)/R;
+  const laneTop=(phone||tab)?Math.max(topH,(H-numH-band+6-laneH*R)/2):topH;
   const infoY=small? laneTop+laneH*R+numH+2 : 4;   // 파트 연습·시작 위치 안내 글씨 자리
-  const cb=SONG.cellBeats||0.5, ppb=phone?Math.max(60,W*0.17):lphone?Math.max(70,W*0.11):Math.max(150,W*0.13), lineX=W*0.2, cellW=ppb*cb;
+  const cb=SONG.cellBeats||0.5, ppb=phone?Math.max(60,W*0.17):tab?W*0.15:lphone?Math.max(70,W*0.11):Math.max(150,W*0.13), lineX=W*0.2, cellW=ppb*cb;
   const X=beat=>lineX+(beat-b)*ppb;
   const minB=b-lineX/ppb-1, maxB=b+(W-lineX)/ppb+1;
 
@@ -938,11 +977,16 @@ let toastT;
 function toast(msg,ms){ let t=$("#toast"); if(!t){ t=document.createElement("div"); t.id="toast"; document.body.append(t); t.onclick=()=>t.classList.remove("show"); }
   t.innerHTML=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),ms||6000); }
 function fullHelp(){
-  const iOS=/iPhone|iPod/.test(navigator.userAgent);
-  toast(iOS ? "아이폰은 웹 페이지 전체화면을 지원하지 않아요.<br>📱 핸드폰을 <b>가로로 돌리면</b> 화면이 넓어지고, 사파리 주소창은 화면을 아래로 살짝 쓸면 작아져요."
-            : "이 브라우저에서는 전체화면이 안 돼요.<br>카톡·파일 미리보기라면 <b>크롬으로 열기</b>를 눌러 주세요. 📱 가로로 돌리면 화면이 넓어져요.", 8000);
+  // 태블릿처럼 손가락으로 쓰는 기기는 '악보 크게 보기'로 대신해요
+  if(isTouch() && $("#play").classList.contains("show")){ if(!document.body.classList.contains("focus")) phoneFull(); return; }
+  toast(isIOSSafari ? "이 기기의 사파리는 전체화면을 지원하지 않아요.<br>주소창 왼쪽 <b>‘가가’(ᴀA)</b> 버튼 → <b>‘도구 막대 가리기’</b>를 눌러 보세요."
+            : "이 브라우저에서는 전체화면이 안 돼요.<br>카톡·파일 미리보기라면 <b>크롬으로 열기</b>를 눌러 주세요.", 8000);
 }
 const isPhone=()=>Math.min(innerWidth,innerHeight)<600;
+const UA=navigator.userAgent;
+const isIOS=/iPhone|iPad|iPod/.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints>1);
+const isIOSSafari=isIOS && /Safari/.test(UA) && !/CriOS|FxiOS|EdgiOS|OPiOS|NAVER|Whale|KAKAOTALK|Line|Instagram|FBAN|FBAV|DaumApps|SamsungBrowser/i.test(UA);
+const isTouch=()=>navigator.maxTouchPoints>0 || matchMedia("(pointer:coarse)").matches;
 function setFocus(on){
   document.body.classList.toggle("focus",on);
   $("#btnFull").textContent=on?"⛶ 작게 보기":"⛶ 전체화면";
@@ -955,7 +999,7 @@ function phoneFull(){
     if(on){
       const req=el.requestFullscreen||el.webkitRequestFullscreen;   // 안드로이드: 주소창까지 숨기기 (가로 고정은 하지 않아요)
       if(req){ const pr=req.call(el,{navigationUI:"hide"}); if(pr&&pr.catch) pr.catch(()=>{}); }
-      if(/iPhone|iPod/.test(navigator.userAgent) && !store.get("iosTip",false)){
+      if(isIOSSafari && !store.get("iosTip",false)){
         store.set("iosTip",true);
         toast("악보만 크게 보여요. 사파리 주소창까지 없애려면<br>주소창 왼쪽 <b>‘가가’(ᴀA)</b> 버튼 → <b>‘도구 막대 가리기’</b>를 눌러 주세요.",9000);
       }
@@ -970,7 +1014,7 @@ function toggleFull(){
     const req=el.requestFullscreen||el.webkitRequestFullscreen;
     if(!req){ fullHelp(); return; }
     const pr=req.call(el,{navigationUI:"hide"});
-    const after=()=>{ try{ if(screen.orientation&&screen.orientation.lock) screen.orientation.lock("landscape").catch(()=>{}); }catch(e){} };
+    const after=()=>{ try{ if(!isTouch() && screen.orientation&&screen.orientation.lock) screen.orientation.lock("landscape").catch(()=>{}); }catch(e){} };
     if(pr&&pr.then) pr.then(after).catch(fullHelp); else after();
     setTimeout(()=>{ if(!isFull()) fullHelp(); },700);
   }catch(e){ fullHelp(); }
