@@ -27,11 +27,11 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 .bells span{width:clamp(26px,3vw,58px);height:clamp(26px,3vw,58px);border-radius:50%;
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:clamp(13px,1.4vw,28px)}
 .songs{display:flex;gap:2vw;justify-content:center}
-.song{width:clamp(200px,24vw,460px);padding:1.4vh 1.5vw;border-radius:26px;background:var(--panel);
+.song{width:clamp(160px,21vw,420px);padding:1.4vh 1vw;border-radius:26px;background:var(--panel);
   border:6px solid transparent;display:flex;flex-direction:column;align-items:center;gap:1vh;
   box-shadow:0 8px 0 rgba(0,0,0,.35);transition:transform .1s}
 .song .ic{font-size:clamp(28px,3vw,60px);line-height:1}
-.song .tt{font-size:clamp(22px,2.5vw,50px);font-weight:900;white-space:nowrap}
+.song .tt{font-size:clamp(20px,2.1vw,44px);font-weight:900;white-space:nowrap}
 .song .ds{font-size:clamp(14px,1.3vw,26px);color:var(--sub);font-weight:700}
 .song.on{border-color:var(--gold);background:#2f3a78;transform:translateY(-6px)}
 .song.on .tt::before{content:"✔ ";color:var(--gold)}
@@ -519,9 +519,12 @@ const MODE={}, VERSE={};
 });          // 0 = 모두 함께, 1~6 = 파트 연습
 let speed = store.get("speed", 1);
 let bellOn = store.get("bellOn", true);
-let songIdx = Math.max(0, SONGS.findIndex(s=>s.id===store.get("song","joy")));
-const isAudioSel = ()=> MODE[SONGS[songIdx].id]==="audio";
-const lineKey = s => MODE[s.id]==="audio" ? "lastLine_"+s.id+"A"+(AUDIO[s.id].rep?VERSE[s.id]:1) : "lastLine_"+s.id;
+// songIdx 0~2 = 한 곡씩, 3 = 세 곡 한 번에 연습
+let songIdx = store.get("song","joy")==="medley" ? 3 : Math.max(0, SONGS.findIndex(s=>s.id===store.get("song","joy")));
+const MED_ORDER=[1,0,2];            // 허시 리틀 베이비 → 환희의 송가 → 종이접기 (합친 음원 순서)
+const MED={on:false, k:0, busy:false};
+const isAudioSel = ()=> songIdx===3 || MODE[SONGS[songIdx].id]==="audio";
+const lineKey = s => MED.on ? "lastLine_medley_"+s.id : MODE[s.id]==="audio" ? "lastLine_"+s.id+"A"+(AUDIO[s.id].rep?VERSE[s.id]:1) : "lastLine_"+s.id;
 const lastLineOf = s => store.get(lineKey(s), 0);
 let AM=false, VOFF=[0], SL=64, NL=4;  // AM = 음원 연습 중인지, VOFF = 각 절이 시작하는 박, SL = 노래 한 번의 박 수, NL = 줄 수
 const inGap = b => AM && VOFF.length>1 && b>=SL && b<VOFF[1];
@@ -536,7 +539,7 @@ function locOf(b){             // 박 → {절, 줄, 마디, 박}
 let SONG, EVENTS=[], VIS=[], TOTAL_BEATS=64, END_BEAT=66, USED={};
 function loadSong(i){
   SONG = SONGS[i];
-  AM = MODE[SONG.id]==="audio";
+  AM = MED.on || MODE[SONG.id]==="audio";
   if(AM) return loadAudioMode();
   VOFF=[0];
   EVENTS=[]; VIS=[]; USED={};
@@ -583,7 +586,7 @@ function loadAudioMode(){
   EVENTS=[]; VIS=[]; USED={};
   AUD=AUDIO[SONG.id];
   const cb=SONG.cellBeats||0.5; BPL=32*cb; NL=SONG.lines.length; SL=NL*BPL;
-  VOFF = (AUD.rep && VERSE[SONG.id]===2) ? [0,AUD.rep] : [0];
+  VOFF = (AUD.rep && (MED.on || VERSE[SONG.id]===2)) ? [0,AUD.rep] : [0];   // 세 곡 한 번에: 늘 2절까지
   VOFF.forEach(off=>{
     SONG.lines.forEach((line,L)=>line.forEach((row,r)=>row.forEach(([s,len,name])=>{
       const beat=off+L*BPL+s*cb, dur=len*cb;
@@ -731,7 +734,7 @@ function ensureAudioEl(){
     try{ el.preservesPitch=true; el.webkitPreservesPitch=true; }catch(e){}
     try{ const src=ac.createMediaElementSource(el); AGN[id]=ac.createGain(); src.connect(AGN[id]); AGN[id].connect(master); }catch(e){ AGN[id]=null; }
     el.addEventListener("playing",()=>{ if(AM&&playing&&el===audEl){ aAnchorAud=el.currentTime; aAnchorAc=ac.currentTime; } });
-    el.addEventListener("ended",()=>{ if(AM&&playing&&el===audEl){ stopAll(); store.set(lineKey(SONG),0); showEnd(); } });
+    el.addEventListener("ended",()=>{ if(AM&&playing&&el===audEl) songFinished(); });
     AEL[id]=el;
   }
   audEl=AEL[id]; audGain=AGN[id];
@@ -815,7 +818,7 @@ function pause(){
   if(!playing) return;
   pausedBeat=curBeat(); playing=false; clearInterval(timer); silenceFuture();
   if(AM && audEl) audEl.pause();
-  saveLine(pausedBeat);
+  saveLine(Math.max(pausedBeat,startBeat));   // 1,2,3,4 세는 중에 멈추면 시작하려던 줄로 기억
   $("#btnPause").textContent="▶ 계속";
   $("#pausedMsg").classList.add("show"); $("#count").classList.remove("show");
 }
@@ -829,14 +832,36 @@ function saveLine(b){
   store.set(lineKey(SONG), L);
 }
 
+function songFinished(){
+  if(MED.busy) return;
+  stopAll(); store.set(lineKey(SONG),0);
+  if(MED.on && MED.k<MED_ORDER.length-1){ MED.busy=true; medleyGo(MED.k+1,0); MED.busy=false; return; }
+  if(MED.on){ store.set("medley_k",0); }
+  showEnd();
+}
+function medleyGo(k,line){            // 세 곡 한 번에: k번째 곡의 line째 줄부터 (line 0 = 그 곡 전주부터)
+  MED.on=true; MED.k=k; store.set("medley_k",k);
+  loadSong(MED_ORDER[k]);
+  show("play"); buildLegend(); buildLineBtns(); resize();
+  pausedBeat=line?lineBeat(line)-4:-AUD.k1;
+  startFrom(lineBeat(line), line===0);
+}
+
 /* ================== 화면 전환 ================== */
 const $=s=>document.querySelector(s);
 function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("show",s.id===id)); }
-function goHome(){ stopAll(); if(document.body.classList.contains("focus")){ setFocus(false); try{ if(isFull()) (document.exitFullscreen||document.webkitExitFullscreen).call(document); }catch(e){} } show("home"); refreshHome(); }
+function goHome(){ stopAll(); MED.on=false; if(document.body.classList.contains("focus")){ setFocus(false); try{ if(isFull()) (document.exitFullscreen||document.webkitExitFullscreen).call(document); }catch(e){} } show("home"); refreshHome(); }
 function refreshHome(){
   document.querySelectorAll(".song").forEach((el,i)=>el.classList.toggle("on",i===songIdx));
+  document.body.classList.add("paper-on");
+  if(songIdx===3){
+    $("#paperOpts").classList.remove("show");
+    const k=store.get("medley_k",0), sg=SONGS[MED_ORDER[k]], A2=AUDIO[sg.id], ll=store.get("lastLine_medley_"+sg.id,0), nl=sg.lines.length;
+    $("#resumeInfo").textContent=`세 곡: ${sg.title} ${A2.rep?(ll>=nl?"2":"1")+A2.lab+" ":""}${ll%nl+1}째 줄부터`;
+    return;
+  }
   const s=SONGS[songIdx], A=AUDIO[s.id], md=MODE[s.id], vs=VERSE[s.id];
-  $("#paperOpts").classList.add("show"); document.body.classList.add("paper-on");
+  $("#paperOpts").classList.add("show");
   $("#verseRow").style.display = (md==="audio" && A.rep) ? "" : "none";
   const vb=document.querySelectorAll("#verseSeg button"); vb[0].textContent="1"+A.lab+"만"; vb[1].textContent="2"+A.lab+"까지";
   document.querySelectorAll("#pmodeSeg button").forEach(b=>b.classList.toggle("on",b.dataset.pmode===md));
@@ -847,6 +872,9 @@ function refreshHome(){
     : s.title+" "+(ll+1)+"째 줄부터";
 }
 function goPlay(line){
+  if(songIdx===3){ const k=line===null?store.get("medley_k",0):0; medleyGo(k, line===null?store.get("lastLine_medley_"+SONGS[MED_ORDER[k]].id,0):0); return; }
+  MED.on=false;
+  if(line===null) line=lastLineOf(SONGS[songIdx]);
   loadSong(songIdx);
   show("play"); buildLegend(); buildLineBtns(); resize();
   if(AM){ pausedBeat=line?lineBeat(line)-4:-AUD.k1; startFrom(lineBeat(line), line===0); return; }
@@ -862,6 +890,10 @@ SONGS.forEach((s,i)=>{
   b.onclick=()=>{ songIdx=i; store.set("song",s.id); refreshHome(); };
   songsBox.append(b);
 });
+{ const b=document.createElement("button"); b.className="song";
+  b.innerHTML=`<span class="ic">🎼</span><span class="tt">세 곡 한 번에 연습</span><span class="ds">음원 · 약 4분 55초</span>`;
+  b.onclick=()=>{ songIdx=3; store.set("song","medley"); refreshHome(); };
+  songsBox.append(b); }
 
 const dotsHTML = arr => `<span class="dots">${arr.map(n=>`<i style="background:${COLOR[n]}"></i>`).join("")}</span>`;
 function buildPartBtns(){
@@ -910,7 +942,12 @@ function buildLegend(){
   setPart(partMode);
 }
 function buildLineBtns(){
-  const box=$("#lineBtns"); box.innerHTML="줄 선택";
+  const box=$("#lineBtns"); box.innerHTML=MED.on?"":"줄 선택";
+  if(MED.on){
+    MED_ORDER.forEach((si,k)=>{ const sg=SONGS[si], b=document.createElement("button"); b.className="tb"+(k===MED.k?" on":"");
+      b.textContent=sg.icon+" "+({joy:"환희",hush:"허시",paper:"종이접기"})[sg.id]; b.onclick=()=>medleyGo(k,0); box.append(b); });
+    const t=document.createElement("span"); t.textContent=" 줄"; box.append(t);
+  }
   const nv=AM?VOFF.length:1;
   for(let v=0;v<nv;v++){
     if(nv>1){ const t=document.createElement("span"); t.textContent=(v?" · ":"")+(v+1)+AUD.lab; box.append(t); }
@@ -937,7 +974,7 @@ function draw(){
   requestAnimationFrame(draw);
   if(!$("#play").classList.contains("show") || !W) return;
   const b=curBeat();
-  if(playing && b>=END_BEAT){ stopAll(); store.set(lineKey(SONG),0); showEnd(); return; }
+  if(playing && b>=END_BEAT){ songFinished(); return; }
   if(AM && playing && AUD.rep && VOFF.length===1 && b>=SL+0.2 && !fading){ fading=true; setAudVol(0,2/speed); }
 
   const R=SONG.rowKinds.length, tall=H>W*1.05, phone=tall && W<700, tab=tall && !phone, lphone=!tall && H<460;
@@ -1035,7 +1072,7 @@ function draw(){
 
   const lcN=locOf(b), L=Math.max(0,Math.min(SONG.lines.length-1,lcN.L)), M=b<0?0:Math.min(BPL/4-1,lcN.M);
   const vt=(AM&&VOFF.length>1)?`${lcN.v+1}${AUD.lab} `:"";
-  const txt=`<span class="sn">${SONG.icon} ${SONG.title}${AM?" · 🎵 음원 연습":""}</span>${vt}${L+1}째 줄<small>${M+1}마디</small>`;
+  const txt=`<span class="sn">${MED.on?(MED.k+1)+"/3 ":""}${SONG.icon} ${SONG.title}${MED.on?" · 🎼 세 곡":AM?" · 🎵 음원 연습":""}</span>${vt}${L+1}째 줄<small>${M+1}마디</small>`;
   if($("#posText").innerHTML!==txt) $("#posText").innerHTML=txt;
 
   const on={};
@@ -1077,7 +1114,8 @@ function draw(){
   if(AM && playing && b<target-4){
     const txt2 = (b<0||target===0) ? "전주 중 ♬" : "간주 중 ♬";
     const left=Math.ceil((target-4-b)/4);
-    const html=`${txt2}<small>노래까지 ${left}마디</small>`;
+    const head = (MED.on && (b<0||target===0)) ? `<small>${MED.k?"다음 곡":"1곡"}</small>${SONG.icon} ${SONG.title}<br>` : "";
+    const html=`${head}${txt2}<small>노래까지 ${left}마디</small>`;
     if(sm.innerHTML!==html) sm.innerHTML=html; sm.classList.add("show");
   } else sm.classList.remove("show");
   if(playing && b<target){
@@ -1115,7 +1153,7 @@ cv.addEventListener("pointercancel",endDrag);
 
 /* ================== 끝 화면 ================== */
 function showEnd(){
-  show("end"); $("#endText").textContent=SONG.title+"를 끝까지 연주했어요";
+  show("end"); $("#endText").textContent=MED.on?"세 곡을 끝까지 연주했어요":SONG.title+"를 끝까지 연주했어요";
   const cols=Object.values(COLOR);
   for(let i=0;i<60;i++){
     const d=document.createElement("div"); d.className="confetti";
@@ -1129,15 +1167,15 @@ function showEnd(){
 $("#btnStart").onclick=()=>goPlay(0);
 document.querySelectorAll("#pmodeSeg button").forEach(b=>b.onclick=()=>{ const id=SONGS[songIdx].id; MODE[id]=b.dataset.pmode; store.set("mode_"+id,MODE[id]); refreshHome(); });
 document.querySelectorAll("#verseSeg button").forEach(b=>b.onclick=()=>{ const id=SONGS[songIdx].id; VERSE[id]=Number(b.dataset.verse); store.set("verse_"+id,VERSE[id]); refreshHome(); });
-$("#btnResume").onclick=()=>goPlay(lastLineOf(SONGS[songIdx]));
+$("#btnResume").onclick=()=>goPlay(null);
 $("#btnAssign").onclick=()=>{ buildCards(); show("assign"); };
 $("#btnAssignBack").onclick=()=>goHome();
 $("#btnClear").onclick=()=>{ assign={}; store.set("assignParts",assign); buildCards(); flashSaved(); };
 $("#btnPause").onclick=()=>{ playing?pause():resume(); };
 $("#btnContinue").onclick=()=>resume();
-$("#btnRestart").onclick=()=>{ store.set(lineKey(SONG),0); startFrom(0,true); };
+$("#btnRestart").onclick=()=>{ if(MED.on) return medleyGo(0,0); store.set(lineKey(SONG),0); startFrom(0,true); };
 $("#btnHome").onclick=()=>goHome();
-$("#btnAgain").onclick=()=>goPlay(0);
+$("#btnAgain").onclick=()=>{ if(songIdx===3) return medleyGo(0,0); goPlay(0); };
 $("#btnOther").onclick=()=>goHome();
 $("#btnEndHome").onclick=()=>goHome();
 document.querySelectorAll("[data-speedseg] button").forEach(btn=>btn.onclick=()=>setSpeed(Number(btn.dataset.speed)));
@@ -1198,7 +1236,7 @@ function toggleFull(){
 }));
 if(window.visualViewport) visualViewport.addEventListener("resize",()=>{ if($("#play").classList.contains("show")) resize(); });
 $("#mPause").onclick=()=>{ playing?pause():resume(); };
-$("#mRestart").onclick=()=>{ store.set(lineKey(SONG),0); startFrom(0,true); };
+$("#mRestart").onclick=()=>{ if(MED.on) return medleyGo(0,0); store.set(lineKey(SONG),0); startFrom(0,true); };
 $("#mSpeed").onclick=()=>setSpeed(speed===1?0.8:1);
 $("#mHome").onclick=()=>goHome();
 $("#mExit").onclick=()=>phoneFull();
@@ -1211,7 +1249,7 @@ document.addEventListener("keydown",e=>{
   else if(e.key==="f"||e.key==="F") toggleFull();
 });
 
-loadSong(songIdx);
+loadSong(songIdx===3?MED_ORDER[0]:songIdx);
 setSpeed(speed===0.8?0.8:1); paintBell(); buildPartBtns(); refreshHome();
 </script>
 </body>
